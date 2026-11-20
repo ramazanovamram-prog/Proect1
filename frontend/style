@@ -1,1 +1,672 @@
+:root {
+    /* Светлая тема (Этно-травертин и цвета макета) */
+    --bg-canvas: #FAF6E6;        /* Теплый кремово-травертиновый фон */
+    --bg-surface: #FFFFFF;
+    --bg-pill: #EFECE0;
+    --text-main: #1E2421;
+    --text-muted: #5C635E;
+    --border-subtle: rgba(30, 36, 33, 0.12);
 
+    /* Фирменные акценты */
+    --map-green: #3E6642;        /* Глубокий горный хвойный (блок карты) */
+    --btn-red: #B82925;          /* Киноварь / Кубачинский красный (кнопка АБ) */
+    --accent-blue: #2388C7;      /* Каспийский лазурный (кнопка Найти) */
+
+    /* Цвета карточек */
+    --card-berry: #C45B6E;       /* Бордово-гранатовый */
+    --card-ochre: #F2A65A;       /* Горная охра / абрикос */
+    --card-sky: #84CEDE;         /* Небесно-бирюзовый Сулак */
+}
+
+body.dark-theme {
+    --bg-canvas: #141816;
+    --bg-surface: #1E2421;
+    --bg-pill: #262E2A;
+    --text-main: #F5F2E8;
+    --text-muted: #A3ABA6;
+    --border-subtle: rgba(255, 255, 255, 0.12);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--bg-canvas);
+    color: var(--text-main);
+    transition: background-color 0.3s ease, color 0.3s ease;
+    min-height: 100vh;
+    padding: 24px 32px;
+    line-height: 1.5;
+}
+
+h1, h2, h3, h4 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+}
+
+/* Двухколоночная сетка */
+.layout-wrapper {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 44% 53%;
+    gap: 3%;
+    align-items: start;
+}
+
+/* --- ЛЕВАЯ КОЛОНКА --- */
+.left-controls {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.logo-box {
+    background-color: #6B786E;
+    color: #FFFFFF;
+    padding: 8px 16px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease;
+}
+
+.logo-box:hover {
+    transform: translateY(-1px);
+}
+
+.lang-btn {
+    background-color: var(--btn-red);
+    color: #FFFFFF;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 10px rgba(184, 41, 37, 0.25);
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.lang-btn:hover {
+    background-color: #9E211E;
+    transform: translateY(-1px);
+}
+
+.lang-btn small {
+    background: rgba(255, 255, 255, 0.22);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 10px;
+}
+
+/* Переключатель День / Ночь */
+.theme-toggle {
+    width: 64px;
+    height: 32px;
+    background-color: #DCD8C8;
+    border-radius: 50px;
+    border: 2px solid rgba(0, 0, 0, 0.08);
+    position: relative;
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.3s ease;
+}
+
+body.dark-theme .theme-toggle {
+    background-color: #2E3833;
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.toggle-thumb {
+    width: 24px;
+    height: 24px;
+    background: #FFF9D6;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s ease, background-color 0.3s ease;
+}
+
+body.dark-theme .toggle-thumb {
+    transform: translateX(32px);
+    background: #1B3B48;
+}
+
+/* Карта */
+.map-card {
+    background-color: var(--map-green);
+    border-radius: 20px;
+    padding: 10px;
+    position: relative;
+    height: 490px;
+    box-shadow: 0 16px 36px rgba(62, 102, 66, 0.2);
+    overflow: hidden;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+    border-radius: 14px;
+    z-index: 1;
+}
+
+.map-layer-bar {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+    background: rgba(250, 246, 230, 0.94);
+    padding: 5px;
+    border-radius: 50px;
+    display: flex;
+    gap: 4px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+
+.layer-chip {
+    border: none;
+    background: transparent;
+    padding: 6px 14px;
+    border-radius: 40px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #3E6642;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.layer-chip.active {
+    background: #3E6642;
+    color: #FFFFFF;
+}
+
+.map-status-bar {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    z-index: 1000;
+    background: rgba(250, 246, 230, 0.95);
+    color: #1E2421;
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* Всплывающие окна Leaflet */
+.leaflet-popup-content-wrapper {
+    background: #FAF6E6;
+    color: #1E2421;
+    border-radius: 12px;
+    border: 1px solid #D4A359;
+}
+
+/* Блок этикета и словаря под картой */
+.etiquette-card {
+    margin-top: 18px;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 18px;
+    padding: 18px 22px;
+    transition: background-color 0.3s ease;
+}
+
+.etiquette-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.ornament {
+    color: var(--btn-red);
+    font-size: 18px;
+}
+
+.etiquette-header h4 {
+    font-size: 20px;
+    color: var(--text-main);
+}
+
+.phrases-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.phrase-pill {
+    background: var(--bg-pill);
+    padding: 8px 12px;
+    border-radius: 10px;
+}
+
+.phrase-pill strong {
+    display: block;
+    font-size: 13px;
+    color: var(--map-green);
+}
+
+body.dark-theme .phrase-pill strong {
+    color: #84CEDE;
+}
+
+.phrase-pill span {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.etiquette-tip {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.45;
+}
+
+/* --- ПРАВАЯ КОЛОНКА --- */
+.top-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 12px 14px;
+}
+
+.nav-tab {
+    background: none;
+    border: none;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--text-main);
+    cursor: pointer;
+    position: relative;
+    padding-bottom: 4px;
+    transition: color 0.2s ease;
+}
+
+.nav-tab:hover,
+.nav-tab.active {
+    color: var(--btn-red);
+    font-weight: 700;
+}
+
+.nav-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--btn-red);
+    border-radius: 2px;
+}
+
+/* Поисковая строка */
+.search-wrapper {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 50px;
+    padding: 6px 8px 6px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
+    margin-bottom: 18px;
+}
+
+.search-icon {
+    font-size: 16px;
+    opacity: 0.7;
+}
+
+.search-divider {
+    width: 1px;
+    height: 22px;
+    background-color: var(--border-subtle);
+}
+
+.search-wrapper input {
+    border: none;
+    outline: none;
+    background: transparent;
+    width: 100%;
+    font-size: 15px;
+    color: var(--text-main);
+}
+
+.search-wrapper input::placeholder {
+    color: var(--text-muted);
+    opacity: 0.8;
+}
+
+.search-submit {
+    background-color: var(--accent-blue);
+    color: #FFFFFF;
+    border: none;
+    padding: 8px 26px;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.search-submit:hover {
+    background-color: #1B72A8;
+}
+
+/* Плашка с историческим фактом */
+.history-fact-box {
+    background-color: var(--bg-surface);
+    border-left: 4px solid var(--card-ochre);
+    border-radius: 14px;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+}
+
+.fact-badge {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--btn-red);
+    margin-bottom: 4px;
+}
+
+.history-fact-box h3 {
+    font-size: 20px;
+    margin-bottom: 4px;
+    color: var(--text-main);
+}
+
+.history-fact-box p {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.45;
+}
+
+/* Последние запросы */
+.recent-section {
+    margin-bottom: 20px;
+}
+
+.section-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.recent-carousel {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+}
+
+.recent-carousel::-webkit-scrollbar {
+    height: 6px;
+}
+
+.recent-carousel::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 10px;
+}
+
+.recent-carousel::-webkit-scrollbar-thumb {
+    background: #B8B2A2;
+    border-radius: 10px;
+}
+
+.recent-card {
+    min-width: 195px;
+    flex: 1;
+    border-radius: 14px;
+    padding: 14px 16px;
+    color: #1E2421;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 115px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.recent-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+}
+
+.recent-card.card-berry {
+    color: #FFFFFF;
+}
+
+.recent-tag {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    opacity: 0.85;
+}
+
+.recent-card strong {
+    font-size: 16px;
+    margin: 4px 0;
+}
+
+.recent-card small {
+    font-size: 11px;
+    opacity: 0.9;
+}
+
+/* Плашка-заголовок «Экскурсии по Дагестану» */
+.section-banner {
+    background-color: var(--bg-surface);
+    border-radius: 12px;
+    padding: 10px 20px;
+    text-align: center;
+    margin-bottom: 16px;
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.section-banner h2 {
+    font-size: 26px;
+    font-weight: 700;
+color: var(--text-main);
+}
+/* Сетка 2x2 из 4 карточек */
+.excursions-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 16px;
+}
+.grid-card {
+border-radius: 18px;
+padding: 20px;
+min-height: 195px;
+display: flex;
+flex-direction: column;
+justify-content: space-between;
+cursor: pointer;
+transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.grid-card:hover {
+transform: translateY(-3px);
+box-shadow: 0 12px 24px rgba(0, 0, 0, 0.14);
+}
+.card-berry {
+background-color: var(--card-berry);
+color: #FFFFFF;
+}
+.card-sky {
+background-color: var(--card-sky);
+color: #14282E;
+}
+.card-ochre {
+background-color: var(--card-ochre);
+color: #24190E;
+}
+.card-top {
+display: flex;
+justify-content: space-between;
+align-items: center;
+font-size: 12px;
+font-weight: 700;
+}
+.card-pill {
+background: rgba(255, 255, 255, 0.28);
+padding: 4px 10px;
+border-radius: 20px;
+}
+.grid-card h3 {
+font-size: 24px;
+line-height: 1.15;
+margin: 10px 0 6px;
+}
+.grid-card p {
+font-size: 13px;
+opacity: 0.92;
+line-height: 1.4;
+}
+.card-footer {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-top: 14px;
+padding-top: 10px;
+border-top: 1px solid rgba(0, 0, 0, 0.1);
+font-weight: 700;
+font-size: 14px;
+}
+.card-berry .card-footer {
+border-top-color: rgba(255, 255, 255, 0.22);
+}
+/* Модальное окно */
+.modal-overlay {
+position: fixed;
+inset: 0;
+background: rgba(0, 0, 0, 0.55);
+display: none;
+align-items: center;
+justify-content: center;
+z-index: 2000;
+padding: 20px;
+backdrop-filter: blur(3px);
+}
+.modal-overlay.open {
+display: flex;
+}
+.modal-card {
+background: var(--bg-surface);
+color: var(--text-main);
+max-width: 480px;
+width: 100%;
+border-radius: 22px;
+padding: 28px;
+position: relative;
+box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+.modal-close {
+position: absolute;
+top: 18px;
+right: 18px;
+background: var(--bg-pill);
+color: var(--text-main);
+border: none;
+width: 32px;
+height: 32px;
+border-radius: 50%;
+cursor: pointer;
+font-weight: 700;
+transition: background-color 0.2s ease;
+}
+.modal-close:hover {
+background: var(--btn-red);
+color: #FFFFFF;
+}
+.modal-tag {
+font-size: 11px;
+font-weight: 700;
+color: var(--btn-red);
+text-transform: uppercase;
+}
+.modal-card h2 {
+font-size: 28px;
+margin: 6px 0 12px;
+}
+.modal-card p {
+font-size: 14px;
+color: var(--text-muted);
+line-height: 1.55;
+margin-bottom: 20px;
+}
+.modal-actions {
+display: flex;
+justify-content: space-between;
+align-items: center;
+}
+.modal-price {
+font-size: 20px;
+font-weight: 700;
+}
+.btn-map-focus {
+background: var(--map-green);
+color: #FFFFFF;
+border: none;
+padding: 10px 20px;
+border-radius: 50px;
+font-weight: 600;
+cursor: pointer;
+transition: background-color 0.2s ease;
+}
+.btn-map-focus:hover {
+background: #2F5033;
+}
+/* Адаптивность */
+@media (max-width: 1024px) {
+.layout-wrapper {
+grid-template-columns: 1fr;
+gap: 24px;
+}
+.map-card {
+height: 380px;
+}
+}
+@media (max-width: 600px) {
+body {
+padding: 14px;
+}
+.excursions-grid {
+grid-template-columns: 1fr;
+}
+.phrases-row {
+grid-template-columns: 1fr;
+}
+.nav-tab {
+font-size: 18px;
+}
+.left-controls {
+flex-wrap: wrap;
+}
+}

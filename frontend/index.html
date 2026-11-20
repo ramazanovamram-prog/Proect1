@@ -1,1 +1,172 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ДАГЕСТАН • Этно-путеводитель по Стране гор</title>
+    <link rel="preconnect" href="https://googleapis.com">
+    <link rel="preconnect" href="https://gstatic.com" crossorigin>
+    <link href="https://googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com" />
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="layout-wrapper">
+    <!-- ЛЕВАЯ КОЛОНКА (Как на макете: Лого, АБ, Переключатель темы + Большая карта) -->
+    <aside class="left-column">
+        <div class="left-controls">
+            <div class="logo-box" onclick="resetMap()">
+                <span class="logo-icon">⛰️</span>
+                <span class="logo-text" data-ru="ДАГЕСТАН" data-en="DAGESTAN">ДАГЕСТАН</span>
+            </div>
+
+            <!-- Красная кнопка АБ (Переключатель языка RU/EN) -->
+            <button class="lang-btn" id="langBtn" onclick="toggleLang()" title="Сменить язык / Switch language">
+                АБ <small id="langIndicator">RU</small>
+            </button>
+
+            <!-- Переключатель День / Ночь (Солнце / Луна) -->
+            <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Переключить тему">
+                <span class="toggle-thumb" id="toggleThumb">☀️</span>
+            </button>
+        </div>
+
+        <!-- Зеленый блок «Карта» из макета -->
+        <div class="map-card">
+            <div class="map-layer-bar">
+                <button class="layer-chip active" onclick="setMapLayer('ethno', this)" data-ru="Этно" data-en="Ethno">Этно</button>
+                <button class="layer-chip" onclick="setMapLayer('relief', this)" data-ru="Рельеф" data-en="Relief">Рельеф</button>
+                <button class="layer-chip" onclick="setMapLayer('satellite', this)" data-ru="Спутник" data-en="Satellite">Спутник</button>
+            </div>
+
+            <div id="map"></div>
+
+            <div class="map-status-bar" id="mapStatus">
+                <span>📍 Нажмите на метку на карте или выберите карточку справа</span>
+            </div>
+        </div>
+
+        <!-- Полезный блок под картой (заполняет нижнюю левую часть макета) -->
+        <div class="etiquette-card">
+            <div class="etiquette-header">
+                <span class="ornament">❖</span>
+                <h4 data-ru="Словарь и этикет гостя" data-en="Guest Dictionary & Etiquette">Словарь и этикет гостя</h4>
+            </div>
+            <div class="phrases-row">
+                <div class="phrase-pill">
+                    <strong>Баркала!</strong>
+                    <span>Спасибо (авар. / дарг.)</span>
+                </div>
+                <div class="phrase-pill">
+                    <strong>Салам алейкум</strong>
+                    <span>Мир вашему дому</span>
+                </div>
+            </div>
+            <p class="etiquette-tip" data-ru="В горных селах приветствуется сдержанная одежда (ниже колен, закрытые плечи) — это знак уважения к традициям."
+               data-en="Modest clothing (below the knees, covered shoulders) is appreciated in mountain villages as a sign of respect.">
+               В горных селах приветствуется сдержанная одежда (ниже колен, закрытые плечи) — это знак уважения к традициям.
+            </p>
+        </div>
+    </aside>
+
+    <!-- ПРАВАЯ КОЛОНКА (Навигация, Поиск, Последние запросы, 4 карточки экскурсий) -->
+    <main class="right-column">
+        <!-- Верхнее меню (еда, культура, отели, афиша) -->
+        <nav class="top-nav">
+            <button class="nav-tab active" onclick="switchCategory('food', this)" data-ru="еда" data-en="food">еда</button>
+            <button class="nav-tab" onclick="switchCategory('culture', this)" data-ru="культура" data-en="culture">культура</button>
+            <button class="nav-tab" onclick="switchCategory('hotels', this)" data-ru="отели" data-en="hotels">отели</button>
+            <button class="nav-tab" onclick="switchCategory('events', this)" data-ru="афиша" data-en="events">афиша</button>
+        </nav>
+
+        <!-- Поисковая строка с лупой и кнопкой «Найти» -->
+        <div class="search-wrapper">
+            <span class="search-icon">🔍</span>
+            <div class="search-divider"></div>
+            <input type="text" id="searchInput" placeholder="поисковая строка (например: хинкал, чуду, гамсутль, кубачи)..." onkeyup="if(event.key==='Enter') executeSearch()">
+            <button class="search-submit" onclick="executeSearch()" data-ru="Найти" data-en="Search">Найти</button>
+        </div>
+
+        <!-- Всплывающий исторический факт (появляется при поиске или клике по еде/культуре) -->
+        <div class="history-fact-box" id="historyBox">
+            <div class="fact-badge" id="factBadge">📜 История в тарелке</div>
+            <h3 id="factTitle">Аварский хинкал — символ единства горцев</h3>
+            <p id="factText">Не путать с грузинскими хинкали! В Дагестане это вареные в мясном бульоне кусочки теста, которые подаются отдельно от мяса с чесночным соусом и пиалой наваристого бульона. У каждого из 30 народов республики — свой секрет.</p>
+        </div>
+
+        <!-- Блок «Последние запросы» (3 цветные карточки как на макете + скролл) -->
+        <section class="recent-section">
+            <div class="section-label" data-ru="Последние запросы" data-en="Recent searches">Последние запросы</div>
+            <div class="recent-carousel" id="recentCarousel">
+                <div class="recent-card card-berry" onclick="selectRecent('Хинкал', 42.9831, 47.5047)">
+                    <span class="recent-tag">Гастро-история</span>
+                    <strong>Аварский хинкал</strong>
+                    <small>Где попробовать в Махачкале →</small>
+                </div>
+                <div class="recent-card card-ochre" onclick="selectRecent('Гамсутль', 42.3031, 46.9961)">
+                    <span class="recent-tag">Аул-призрак</span>
+                    <strong>Древний Гамсутль</strong>
+                    <small>Высота 1418 м • Гуниб →</small>
+                </div>
+                <div class="recent-card card-sky" onclick="selectRecent('Каньон', 43.0186, 46.8275)">
+                    <span class="recent-tag">Природа</span>
+                    <strong>Сулакский каньон</strong>
+                    <small>Глубина 1920 м • Дубки →</small>
+                </div>
+                <div class="recent-card card-berry" onclick="selectRecent('Чуду', 42.1500, 47.6200)">
+                    <span class="recent-tag">Рецепт предков</span>
+                    <strong>Даргинское чуду</strong>
+                    <small>Тонкий пирог с травами →</small>
+                </div>
+            </div>
+        </section>
+
+        <!-- Заголовок-плашка «Экскурсии по Дагестану» -->
+        <div class="section-banner">
+            <h2 id="gridHeading" data-ru="Экскурсии по Дагестану" data-en="Excursions in Dagestan">Экскурсии по Дагестану</h2>
+        </div>
+
+        <!-- Сетка из 4 цветных карточек (Бордовая, Бирюзовая, Охристая, Бордовая — точно как на макете) -->
+        <section class="excursions-grid" id="cardsGrid">
+            <!-- Карточка 1: Бордово-терракотовая -->
+            <article class="grid-card card-berry" onclick="openModal('Гастротур: Вкус Страны гор', 'Посещение старинных семейных домов, мастер-класс по лепке даргинского чуду и курзе, дегустация урбеча с каменных жерновов и горного чая с чабрецом.', '4 500 ₽', [42.9831, 47.5047])">
+                <div class="card-top">
+                    <span class="card-pill">Гастрономия • 1 день</span>
+                    <span class="card-rating">★ 4.9</span>
+                </div>
+                <h3>Вкус Страны гор: Хинкал и Чуду</h3>
+                <p>Дегустация блюд 5 народов Дагестана с историей каждого рецепта в гостях у горцев.</p>
+                <div class="card-footer">
+                    <span class="price">4 500 ₽</span>
+                    <span class="action-link">Подробнее →</span>
+                </div>
+            </article>
+
+            <!-- Карточка 2: Бирюзово-небесная -->
+            <article class="grid-card card-sky" onclick="openModal('Сулакский каньон и Бархан Сарыкум', 'Поездка к самому глубокому каньону Европы, прогулка на катере по бирюзовой глади реки Сулак и посещение крупнейшего песчаного бархана Евразии.', '3 900 ₽', [43.0186, 46.8275])">
+                <div class="card-top">
+                    <span class="card-pill">Природа • Хит</span>
+                    <span class="card-rating">★ 5.0</span>
+                </div>
+                <h3>Сулакский каньон и Чиркей</h3>
+                <p>Бирюзовая вода, смотровые площадки над пропастью и обед свежей горной форелью.</p>
+                <div class="card-footer">
+                    <span class="price">3 900 ₽</span>
+                    <span class="action-link">Подробнее →</span>
+                </div>
+            </article>
+
+            <!-- Карточка 3: Теплая охра -->
+            <article class="grid-card card-ochre" onclick="openModal('Аул-призрак Гамсутль и Салтинский водопад', 'Путешествие в сердце горного Дагестана: заброшенный аул на гребне горы, подземный водопад и исторический Гуниб.', '4 200 ₽', [42.3031, 46.9961])">
+                <div class="card-top">
+                    <span class="card-pill">История • Горы</span>
+                    <span class="card-rating">★ 4.9</span>
+                </div>
+                <h3>Гамсутль и Гунибские башни</h3>
+                <p>Тропа к древнему аулу в облаках, легенды Кавказской войны и панорамы плато.</p>
+                <div class="card-footer">
+                    <span class="price">4 200 ₽</span>
+                    <span class="action-link">Подробнее →</span>
+                </div>
 
