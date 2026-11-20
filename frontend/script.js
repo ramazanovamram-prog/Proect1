@@ -4,18 +4,20 @@ let currentItemsList = [];
 let markersLayer = L.layerGroup();
 let routePolyline = null;
 
+// Инициализация карты
 const map = L.map('map', { zoomControl: false }).setView([42.55, 47.15], 8);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 markersLayer.addTo(map);
 
+// Слои карты (ИСПРАВЛЕНО: добавлены правильные URL)
 const mapLayers = {
-    ethno: L.tileLayer('https://{s}://{z}/{x}/{y}{r}.png', {
+    ethno: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap'
     }),
     relief: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenTopoMap'
     }),
-    satellite: L.tileLayer('https://arcgisonline.com{z}/{y}/{x}', {
+    satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         attribution: '© Esri'
     })
 };
@@ -60,24 +62,26 @@ function drawRouteOnMap(place) {
         routePolyline = null;
     }
 
+    // ИСПРАВЛЕНО: добавлены индексы [0] и [1] для parseFloat
     if (place.route_coords && place.route_coords.indexOf('|') !== -1) {
         const pairs = place.route_coords.split('|');
         const points = [];
         for (let i = 0; i < pairs.length; i++) {
             const parts = pairs[i].split(',');
-            const lat = parseFloat(parts);
-            const lon = parseFloat(parts);
+            const lat = parseFloat(parts[0]);
+            const lon = parseFloat(parts[1]);
             if (!isNaN(lat) && !isNaN(lon)) {
                 points.push([lat, lon]);
             }
         }
         if (points.length > 1) {
             routePolyline = L.polyline(points, { color: '#B82925', weight: 5, opacity: 0.85, dashArray: '10, 6' }).addTo(map);
-            map.fitBounds(routePolyline.getBounds(), { padding: });
+            map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
             document.getElementById('mapStatus').innerHTML = '🧭 Маршрут «<strong>' + place.name + '</strong>» построен';
             return;
         }
     }
+    // Если это не маршрут, а просто точка
     if (place.lat && place.lon) {
         map.flyTo([place.lat, place.lon], 13, { duration: 1.3 });
         document.getElementById('mapStatus').innerHTML = '📍 Точка: <strong>' + place.name + '</strong>';
@@ -242,54 +246,60 @@ function renderCards(items) {
 
 const historyFacts = {
     'хинкал': { badge: '🍲 История в тарелке', title: 'Аварский хинкал — символ единства горцев', text: 'Не путать с грузинскими хинкали! Это вареные в мясном бульоне кусочки теста, которые подаются отдельно от мяса с чесночным соусом и пиалой бульона.' },
-'чуду': { badge: '🥟 Кулинарная традиция', title: 'Даргинское чуду — закрытый пирог с душой гор', text: 'Тонкие лепешки с мясом, картофелем, творогом или горной зеленью, которые жарят на сухой сковороде и смазывают топленым маслом.' },
-'урбеч': { badge: '🍯 Древний суперфуд', title: 'Урбеч — энергия горцев на каменных жерновах', text: 'Густая паста из перетертых семян льна, тыквы или абрикосовых косточек, которую брали в долгие горные походы.' },
-'курзе': { badge: '🥟 Секреты кухни', title: 'Курзе — дагестанские пельмени с узорной «косичкой»', text: 'Особый плетеный шов удерживает сочный бульон внутри. В начинку добавляют барбарис, грецкий орех и горные травы.' }
+    'чуду': { badge: '🥟 Кулинарная традиция', title: 'Даргинское чуду — закрытый пирог с душой гор', text: 'Тонкие лепешки с мясом, картофелем, творогом или горной зеленью, которые жарят на сухой сковороде и смазывают топленым маслом.' },
+    'урбеч': { badge: '🍯 Древний суперфуд', title: 'Урбеч — энергия горцев на каменных жерновах', text: 'Густая паста из перетертых семян льна, тыквы или абрикосовых косточек, которую брали в долгие горные походы.' },
+    'курзе': { badge: '🥟 Секреты кухни', title: 'Курзе — дагестанские пельмени с узорной «косичкой»', text: 'Особый плетеный шов удерживает сочный бульон внутри. В начинку добавляют барбарис, грецкий орех и горные травы.' }
 };
+
 function checkAndShowHistoryFact(text) {
-if (!text) return;
-const lower = text.toLowerCase();
-for (const key in historyFacts) {
-if (lower.indexOf(key) !== -1) {
-document.getElementById('factBadge').innerText = historyFacts[key].badge;
-document.getElementById('factTitle').innerText = historyFacts[key].title;
-document.getElementById('factText').innerText = historyFacts[key].text;
-break;
+    if (!text) return;
+    const lower = text.toLowerCase();
+    for (const key in historyFacts) {
+        if (lower.indexOf(key) !== -1) {
+            document.getElementById('factBadge').innerText = historyFacts[key].badge;
+            document.getElementById('factTitle').innerText = historyFacts[key].title;
+            document.getElementById('factText').innerText = historyFacts[key].text;
+            break;
+        }
+    }
 }
-}
-}
+
 function openPlaceModal(index) {
-const place = currentItemsList[index];
-if (!place) return;
-document.getElementById('modalCategory').innerText = (place.category || 'Маршрут') + (place.days ? ' • ' + place.days + ' дн.' : '');
-document.getElementById('modalTitle').innerText = place.name;
-document.getElementById('modalDesc').innerText = place.description || '';
-document.getElementById('modalPrice').innerText = place.price ? place.price + ' ₽' : 'Вход свободный';
-const routeBox = document.getElementById('modalRouteText');
-if (place.route_points) {
-routeBox.style.display = 'block';
-routeBox.innerHTML = 'Точки маршрута: ' + place.route_points;
-} else {
-routeBox.style.display = 'none';
+    const place = currentItemsList[index];
+    if (!place) return;
+    document.getElementById('modalCategory').innerText = (place.category || 'Маршрут') + (place.days ? ' • ' + place.days + ' дн.' : '');
+    document.getElementById('modalTitle').innerText = place.name;
+    document.getElementById('modalDesc').innerText = place.description || '';
+    document.getElementById('modalPrice').innerText = place.price ? place.price + ' ₽' : 'Вход свободный';
+    const routeBox = document.getElementById('modalRouteText');
+    if (place.route_points) {
+        routeBox.style.display = 'block';
+        routeBox.innerHTML = 'Точки маршрута: ' + place.route_points;
+    } else {
+        routeBox.style.display = 'none';
+    }
+    document.getElementById('modalMapBtn').onclick = () => {
+        closeModal(null, true);
+        drawRouteOnMap(place);
+    };
+    document.getElementById('modalOverlay').classList.add('open');
 }
-document.getElementById('modalMapBtn').onclick = () => {
-closeModal(null, true);
-drawRouteOnMap(place);
-};
-document.getElementById('modalOverlay').classList.add('open');
-}
+
 function closeModal(e, force) {
-if (force || (e && e.target.id === 'modalOverlay')) {
-document.getElementById('modalOverlay').classList.remove('open');
+    if (force || (e && e.target.id === 'modalOverlay')) {
+        document.getElementById('modalOverlay').classList.remove('open');
+    }
 }
-}
+
 function toggleTheme() {
-document.body.classList.toggle('dark-theme');
-document.getElementById('toggleThumb').innerText = document.body.classList.contains('dark-theme') ? '🌙' : '☀️';
+    document.body.classList.toggle('dark-theme');
+    document.getElementById('toggleThumb').innerText = document.body.classList.contains('dark-theme') ? '🌙' : '☀️';
 }
+
 let currentLang = 'ru';
 function toggleLang() {
-currentLang = currentLang === 'ru' ? 'en' : 'ru';
-document.getElementById('langIndicator').innerText = currentLang.toUpperCase();
+    currentLang = currentLang === 'ru' ? 'en' : 'ru';
+    document.getElementById('langIndicator').innerText = currentLang.toUpperCase();
 }
+
 document.addEventListener('DOMContentLoaded', initApp);
