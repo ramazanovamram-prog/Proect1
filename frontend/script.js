@@ -1,13 +1,9 @@
 const API_BASE = "http://127.0.0.1:8000";
-
 let currentCategory = "все";
-let allPlacesCache = [];
+let currentItemsList = [];
 let markersLayer = L.layerGroup();
 let routePolyline = null;
 
-// ==========================================
-// 1. ИНИЦИАЛИЗАЦИЯ КАРТЫ LEAFLET
-// ==========================================
 const map = L.map('map', { zoomControl: false }).setView([42.55, 47.15], 8);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 markersLayer.addTo(map);
@@ -23,7 +19,6 @@ const mapLayers = {
         attribution: '© Esri'
     })
 };
-
 let activeTileLayer = mapLayers.ethno.addTo(map);
 
 function setMapLayer(type, btn) {
@@ -44,24 +39,16 @@ function resetMap() {
 
 function renderMarkersOnMap(placesList) {
     markersLayer.clearLayers();
-
     placesList.forEach(place => {
         if (place.lat && place.lon) {
             const marker = L.marker([place.lat, place.lon]);
-            const priceText = place.price ? ` • <b>${place.price} ₽</b>` : '';
-            const ratingText = place.rating ? ` ★ ${place.rating}` : '';
-
-            marker.bindPopup(`
-                <strong>${place.name}</strong><br>
-                <span style="font-size:11px; color:#555;">Категория: ${place.category || 'место'}${ratingText}${priceText}</span><br>
-                <p style="font-size:12px; margin-top:4px;">${place.description ? place.description.slice(0, 90) + '...' : ''}</p>
-            `);
-
+            const priceText = place.price ? ' • <b>' + place.price + ' ₽</b>' : '';
+            const ratingText = place.rating ? ' ★ ' + place.rating : '';
+            marker.bindPopup('<strong>' + place.name + '</strong><br><span style="font-size:11px;">' + (place.category || 'место') + ratingText + priceText + '</span>');
             marker.on('click', () => {
-                document.getElementById('mapStatus').innerHTML = `📍 <strong>${place.name}</strong> (${place.category || 'локация'})${priceText}`;
-                checkAndShowHistoryFact(place.name + " " + (place.description || ""));
+                document.getElementById('mapStatus').innerHTML = '📍 <strong>' + place.name + '</strong>' + priceText;
+                checkAndShowHistoryFact(place.name + ' ' + (place.description || ''));
             });
-
             marker.addTo(markersLayer);
         }
     });
@@ -73,167 +60,129 @@ function drawRouteOnMap(place) {
         routePolyline = null;
     }
 
-    if (place.route_coords && place.route_coords.includes('|')) {
-        const points = place.route_coords.split('|').map(pair => {
-            const [lat, lon] = pair.split(',').map(Number);
-            return [lat, lon];
-        }).filter(pt => !isNaN(pt) && !isNaN(pt));
-
+    if (place.route_coords && place.route_coords.indexOf('|') !== -1) {
+        const pairs = place.route_coords.split('|');
+        const points = [];
+        for (let i = 0; i < pairs.length; i++) {
+            const parts = pairs[i].split(',');
+            const lat = parseFloat(parts);
+            const lon = parseFloat(parts);
+            if (!isNaN(lat) && !isNaN(lon)) {
+                points.push([lat, lon]);
+            }
+        }
         if (points.length > 1) {
-            routePolyline = L.polyline(points, {
-                color: '#B82925',
-                weight: 5,
-                opacity: 0.85,
-                dashArray: '10, 6'
-            }).addTo(map);
-
+            routePolyline = L.polyline(points, { color: '#B82925', weight: 5, opacity: 0.85, dashArray: '10, 6' }).addTo(map);
             map.fitBounds(routePolyline.getBounds(), { padding: });
-            document.getElementById('mapStatus').innerHTML = `🧭 Маршрут «<strong>${place.name}</strong>» построен на карте (${points.length} точек)`;
+            document.getElementById('mapStatus').innerHTML = '🧭 Маршрут «<strong>' + place.name + '</strong>» построен';
             return;
         }
     }
-
     if (place.lat && place.lon) {
         map.flyTo([place.lat, place.lon], 13, { duration: 1.3 });
-        document.getElementById('mapStatus').innerHTML = `📍 Точка: <strong>${place.name}</strong>`;
+        document.getElementById('mapStatus').innerHTML = '📍 Точка: <strong>' + place.name + '</strong>';
     }
 }
 
-// ==========================================
-// 2. ЗАГРУЗКА ДАННЫХ С БЭКЕНДА (FastAPI)
-// ==========================================
-
 async function initApp() {
-    await Promise.all([
-        loadCategories(),
-        loadAllPlaces(),
-        loadLastQueries(),
-        loadExcursions()
-    ]);
+    await Promise.all([loadCategories(), loadAllPlaces(), loadLastQueries(), loadExcursions()]);
 }
 
 async function loadCategories() {
     try {
-        const res = await fetch(`${API_BASE}/api/categories`);
+        const res = await fetch(API_BASE + '/api/categories');
         const categories = await res.json();
         const nav = document.getElementById('categoriesNav');
-
-        nav.innerHTML = categories.map(cat => `
-            <button class="nav-tab ${cat === currentCategory ? 'active' : ''}" 
-                    onclick="selectCategory('${cat}', this)">
-                ${cat}
-            </button>
-        `).join('');
+        nav.innerHTML = '';
+        categories.forEach(cat => {
+            const btn = document.createElement('button');
+            btn.className = 'nav-tab' + (cat === currentCategory ? ' active' : '');
+            btn.innerText = cat;
+            btn.onclick = () => selectCategory(cat, btn);
+            nav.appendChild(btn);
+        });
     } catch (err) {
-        console.warn("Не удалось загрузить категории с сервера, оставлены стандартные:", err);
+        console.warn("Категории загружены из HTML");
     }
 }
 
 async function loadAllPlaces() {
     try {
-        const res = await fetch(`${API_BASE}/api/places`);
-        allPlacesCache = await res.json();
-        renderMarkersOnMap(allPlacesCache);
-        document.getElementById('mapStatus').innerHTML = `✅ Загружено объектов на карту: <strong>${allPlacesCache.length}</strong>`;
+        const res = await fetch(API_BASE + '/api/places');
+        const data = await res.json();
+        renderMarkersOnMap(data);
+        document.getElementById('mapStatus').innerHTML = '✅ Подключено! Объектов на карте: <strong>' + data.length + '</strong>';
     } catch (err) {
-        console.error("Ошибка загрузки /api/places:", err);
-        document.getElementById('mapStatus').innerHTML = `⚠️ Сервер 127.0.0.1:8000 недоступен. Запустите FastAPI (uvicorn).`;
+        document.getElementById('mapStatus').innerHTML = '⚠️ Бэкенд 127.0.0.1:8000 не отвечает. Запустите uvicorn!';
     }
 }
 
 async function loadExcursions(days = null) {
     try {
-        let url = `${API_BASE}/api/excursions`;
-        if (days !== null) {
-            url += `?days=${days}`;
-        }
+        const url = days !== null ? API_BASE + '/api/excursions?days=' + days : API_BASE + '/api/excursions';
         const res = await fetch(url);
         const data = await res.json();
-
-        document.getElementById('gridHeading').innerText = days
-            ? `Экскурсии на ${days} ${days === 1 ? 'день' : 'дня'}`
-            : 'Экскурсии по Дагестану';
-
+        document.getElementById('gridHeading').innerText = days ? 'Экскурсии на ' + days + ' дн.' : 'Экскурсии по Дагестану';
         renderCards(data);
     } catch (err) {
-        console.error("Ошибка загрузки /api/excursions:", err);
+        document.getElementById('cardsGrid').innerHTML = '<div class="empty-state">Нет связи с сервером 127.0.0.1:8000.</div>';
     }
 }
 
 async function executeSearch(customQuery = null) {
     const inputEl = document.getElementById('searchInput');
     const queryText = customQuery !== null ? customQuery : inputEl.value.trim();
-
-    if (customQuery !== null) {
-        inputEl.value = customQuery;
-    }
+    if (customQuery !== null) inputEl.value = customQuery;
 
     checkAndShowHistoryFact(queryText);
 
     try {
         const params = new URLSearchParams();
-        if (currentCategory && currentCategory !== "все") {
-            params.append("category", currentCategory);
-        }
-        if (queryText) {
-            params.append("query", queryText);
-        }
+        if (currentCategory && currentCategory !== "все") params.append("category", currentCategory);
+        if (queryText) params.append("query", queryText);
 
-        const res = await fetch(`${API_BASE}/api/search?${params.toString()}`);
+        const res = await fetch(API_BASE + '/api/search?' + params.toString());
         const results = await res.json();
 
         document.getElementById('gridHeading').innerText = queryText
-            ? `Результаты по запросу «${queryText}» (${results.length})`
-            : `Категория: ${currentCategory} (${results.length})`;
+            ? 'Найдено по запросу «' + queryText + '»: ' + results.length
+            : 'Категория «' + currentCategory + '»: ' + results.length;
 
         renderCards(results);
         renderMarkersOnMap(results);
-
-        if (queryText) {
-            loadLastQueries();
-        }
+        if (queryText) loadLastQueries();
     } catch (err) {
-        console.error("Ошибка при поиске /api/search:", err);
+        console.error(err);
     }
 }
 
 async function loadLastQueries() {
     const carousel = document.getElementById('recentCarousel');
-    const cardColors = ['card-berry', 'card-ochre', 'card-sky'];
-
+    const colors = ['card-berry', 'card-ochre', 'card-sky'];
     try {
-        const res = await fetch(`${API_BASE}/api/last-queries`);
+        const res = await fetch(API_BASE + '/api/last-queries');
         const queries = await res.json();
-
+        carousel.innerHTML = '';
         if (!queries.length) {
-            carousel.innerHTML = `<div class="recent-card card-ochre"><small>История поиска пока пуста. Введите запрос выше!</small></div>`;
+            carousel.innerHTML = '<div class="recent-card card-ochre"><small>История поиска пуста. Введите запрос выше!</small></div>';
             return;
         }
-
-        carousel.innerHTML = queries.map((q, index) => {
-            const colorClass = cardColors[index % cardColors.length];
-            return `
-                <div class="recent-card ${colorClass}" onclick="repeatRecentQuery('${q.query_text}', '${q.category || 'все'}')">
-                    <span class="recent-tag">Категория: ${q.category || 'все'}</span>
-                    <strong>${q.query_text}</strong>
-                    <small>Повторить поиск →</small>
-                </div>
-            `;
-        }).join('');
+        queries.forEach((q, idx) => {
+            const div = document.createElement('div');
+            div.className = 'recent-card ' + colors[idx % colors.length];
+            div.innerHTML = '<span class="recent-tag">' + (q.category || 'все') + '</span><strong>' + q.query_text + '</strong><small>Повторить поиск →</small>';
+            div.onclick = () => repeatRecentQuery(q.query_text, q.category || 'все');
+            carousel.appendChild(div);
+        });
     } catch (err) {
-        console.warn("Не удалось загрузить /api/last-queries:", err);
+        carousel.innerHTML = '<div class="recent-card card-ochre"><small>История загрузится после запуска сервера</small></div>';
     }
 }
-
-// ==========================================
-// 3. ВЗАИМОДЕЙСТВИЕ С ИНТЕРФЕЙСОМ
-// ==========================================
 
 function selectCategory(category, btn) {
     currentCategory = category;
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
     if (btn) btn.classList.add('active');
-
     document.querySelectorAll('.day-chip').forEach(c => c.classList.remove('active'));
 
     if (category === "все" && !document.getElementById('searchInput').value.trim()) {
@@ -253,99 +202,73 @@ function filterByDays(days, btn) {
 function repeatRecentQuery(queryText, category) {
     currentCategory = category;
     document.querySelectorAll('.nav-tab').forEach(tab => {
-        tab.classList.toggle('active', tab.innerText.trim() === category);
+        if (tab.innerText.trim() === category) tab.classList.add('active');
+        else tab.classList.remove('active');
     });
     executeSearch(queryText);
 }
 
 function renderCards(items) {
+    currentItemsList = items || [];
     const grid = document.getElementById('cardsGrid');
     const colors = ['card-berry', 'card-sky', 'card-ochre', 'card-berry'];
+    grid.innerHTML = '';
 
-    if (!items || items.length === 0) {
-        grid.innerHTML = `<div class="empty-state">По вашему запросу ничего не найдено. Попробуйте изменить категорию или поисковое слово.</div>`;
+    if (!currentItemsList.length) {
+        grid.innerHTML = '<div class="empty-state">По вашему запросу ничего не найдено.</div>';
         return;
     }
 
-    grid.innerHTML = items.map((item, index) => {
-        const colorClass = colors[index % colors.length];
-        const daysBadge = item.days ? ` • ${item.days} дн.` : '';
-        const priceText = item.price ? `${item.price} ₽` : 'Бесплатно';
-        const ratingText = item.rating ? `★ ${item.rating}` : '★ 4.9';
-        const itemJson = encodeURIComponent(JSON.stringify(item));
-
-        return `
-            <article class="grid-card ${colorClass}" onclick="openPlaceModal('${itemJson}')">
-                <div class="card-top">
-                    <span class="card-pill">${item.category || 'Маршрут'}${daysBadge}</span>
-${ratingText}
-
-${item.name}
-${item.description || 'Уникальная локация Республики Дагестан.'}
-
-${priceText}
-На карту / Подробнее →
-
-
-`;
-}).join('');
+    currentItemsList.forEach((item, idx) => {
+        const article = document.createElement('article');
+        article.className = 'grid-card ' + colors[idx % colors.length];
+        const daysText = item.days ? ' • ' + item.days + ' дн.' : '';
+        const priceText = item.price ? item.price + ' ₽' : 'Бесплатно';
+        article.innerHTML =
+            '<div class="card-top">' +
+                '<span class="card-pill">' + (item.category || 'Маршрут') + daysText + '</span>' +
+                '<span>★ ' + (item.rating || '4.9') + '</span>' +
+            '</div>' +
+            '<h3>' + item.name + '</h3>' +
+            '<p>' + (item.description || 'Уникальная локация Республики Дагестан.') + '</p>' +
+            '<div class="card-footer">' +
+                '<span>' + priceText + '</span>' +
+                '<span>Подробнее →</span>' +
+            '</div>';
+        article.onclick = () => openPlaceModal(idx);
+        grid.appendChild(article);
+    });
 }
-// ==========================================
-// 4. ИСТОРИЧЕСКИЕ ФАКТЫ О НАЦИОНАЛЬНОЙ ЕДЕ
-// ==========================================
+
 const historyFacts = {
-'хинкал': {
-badge: '🍲 История в тарелке',
-title: 'Аварский хинкал — символ единства горцев',
-text: 'Не путать с грузинскими хинкали! В Дагестане это вареные в мясном бульоне кусочки теста, которые подаются отдельно от мяса с чесночным соусом и пиалой бульона. У каждого из 30 народов республики — свой способ лепки.'
-},
-'чуду': {
-badge: '🥟 Кулинарная традиция',
-title: 'Даргинское чуду — закрытый пирог с душой гор',
-text: 'Тонкие лепешки с мясом, картофелем, творогом или горной зеленью (крапивой и лебедой). Чуду жарят на сухой раскаленной сковороде и щедро смазывают топленым маслом.'
-},
-'урбеч': {
-badge: '🍯 Древний суперфуд',
-title: 'Урбеч — энергия горцев на каменных жерновах',
-text: 'Густая паста из перетертых сырых семян льна, тыквы или абрикосовых косточек. Горцы брали урбеч в походы через перевалы: две ложки с медом мгновенно восстанавливают силы.'
-},
-'курзе': {
-badge: '🥟 Секреты кухни',
-title: 'Курзе — дагестанские пельмени с узорной «косичкой»',
-text: 'Их легко узнать по особому плетеному шву, который удерживает сочный бульон внутри. В начинку часто добавляют барбарис, грецкий орех или ароматные горные травы.'
-},
-'гамсутль': {
-badge: '🏰 Легенды аулов',
-title: 'Гамсутль — аул, высеченный прямо в скале',
-text: 'В переводе с аварского означает «у подножия ханской башни». Аул был неприступной крепостью на высоте 1418 метров, куда вела лишь узкая горная тропа.'
-}
+    'хинкал': { badge: '🍲 История в тарелке', title: 'Аварский хинкал — символ единства горцев', text: 'Не путать с грузинскими хинкали! Это вареные в мясном бульоне кусочки теста, которые подаются отдельно от мяса с чесночным соусом и пиалой бульона.' },
+'чуду': { badge: '🥟 Кулинарная традиция', title: 'Даргинское чуду — закрытый пирог с душой гор', text: 'Тонкие лепешки с мясом, картофелем, творогом или горной зеленью, которые жарят на сухой сковороде и смазывают топленым маслом.' },
+'урбеч': { badge: '🍯 Древний суперфуд', title: 'Урбеч — энергия горцев на каменных жерновах', text: 'Густая паста из перетертых семян льна, тыквы или абрикосовых косточек, которую брали в долгие горные походы.' },
+'курзе': { badge: '🥟 Секреты кухни', title: 'Курзе — дагестанские пельмени с узорной «косичкой»', text: 'Особый плетеный шов удерживает сочный бульон внутри. В начинку добавляют барбарис, грецкий орех и горные травы.' }
 };
 function checkAndShowHistoryFact(text) {
 if (!text) return;
 const lower = text.toLowerCase();
 for (const key in historyFacts) {
-if (lower.includes(key)) {
-const fact = historyFacts[key];
-document.getElementById('factBadge').innerText = fact.badge;
-document.getElementById('factTitle').innerText = fact.title;
-document.getElementById('factText').innerText = fact.text;
+if (lower.indexOf(key) !== -1) {
+document.getElementById('factBadge').innerText = historyFacts[key].badge;
+document.getElementById('factTitle').innerText = historyFacts[key].title;
+document.getElementById('factText').innerText = historyFacts[key].text;
 break;
 }
 }
 }
-// ==========================================
-// 5. МОДАЛЬНОЕ ОКНО, ТЕМА И ЯЗЫК
-// ==========================================
-function openPlaceModal(encodedItem) {
-const place = JSON.parse(decodeURIComponent(encodedItem));
-document.getElementById('modalCategory').innerText = ${place.category || 'Маршрут'}${place.days ? ' • ' + place.days + ' дн.' : ''};
+function openPlaceModal(index) {
+const place = currentItemsList[index];
+if (!place) return;
+document.getElementById('modalCategory').innerText = (place.category || 'Маршрут') + (place.days ? ' • ' + place.days + ' дн.' : '');
 document.getElementById('modalTitle').innerText = place.name;
-document.getElementById('modalDesc').innerText = place.description || 'Описание маршрута.';
-document.getElementById('modalPrice').innerText = place.price ? ${place.price} ₽ : 'Вход свободный';
+document.getElementById('modalDesc').innerText = place.description || '';
+document.getElementById('modalPrice').innerText = place.price ? place.price + ' ₽' : 'Вход свободный';
 const routeBox = document.getElementById('modalRouteText');
 if (place.route_points) {
 routeBox.style.display = 'block';
-routeBox.innerHTML = <strong>Точки маршрута:</strong> ${place.route_points};
+routeBox.innerHTML = 'Точки маршрута: ' + place.route_points;
 } else {
 routeBox.style.display = 'none';
 }
@@ -362,18 +285,11 @@ document.getElementById('modalOverlay').classList.remove('open');
 }
 function toggleTheme() {
 document.body.classList.toggle('dark-theme');
-const isDark = document.body.classList.contains('dark-theme');
-document.getElementById('toggleThumb').innerText = isDark ? '🌙' : '☀️';
+document.getElementById('toggleThumb').innerText = document.body.classList.contains('dark-theme') ? '🌙' : '☀️';
 }
 let currentLang = 'ru';
 function toggleLang() {
 currentLang = currentLang === 'ru' ? 'en' : 'ru';
 document.getElementById('langIndicator').innerText = currentLang.toUpperCase();
-document.querySelectorAll('[data-ru]').forEach(el => {
-el.innerText = el.getAttribute('data-' + currentLang);
-});
 }
-// ==========================================
-// 6. ЗАПУСК ПРИЛОЖЕНИЯ
-// ==========================================
 document.addEventListener('DOMContentLoaded', initApp);
