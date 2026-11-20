@@ -1,6 +1,5 @@
 const API_BASE = "http://127.0.0.1:8000";
 
-// Состояние приложения
 let currentCategory = "все";
 let allPlacesCache = [];
 let markersLayer = L.layerGroup();
@@ -43,7 +42,6 @@ function resetMap() {
     document.getElementById('mapStatus').innerHTML = '📍 Обзорная карта Республики Дагестан';
 }
 
-// Отрисовка меток на карте из массива объектов БД
 function renderMarkersOnMap(placesList) {
     markersLayer.clearLayers();
 
@@ -69,7 +67,6 @@ function renderMarkersOnMap(placesList) {
     });
 }
 
-// Отрисовка линии маршрута из поля route_coords ("42.98,47.50|43.05,46.85")
 function drawRouteOnMap(place) {
     if (routePolyline) {
         map.removeLayer(routePolyline);
@@ -90,13 +87,12 @@ function drawRouteOnMap(place) {
                 dashArray: '10, 6'
             }).addTo(map);
 
-            map.fitBounds(routePolyline.getBounds(), { padding: [40, 40] });
+            map.fitBounds(routePolyline.getBounds(), { padding: });
             document.getElementById('mapStatus').innerHTML = `🧭 Маршрут «<strong>${place.name}</strong>» построен на карте (${points.length} точек)`;
             return;
         }
     }
 
-    // Если route_coords нет, просто летим к одиночной точке lat/lon
     if (place.lat && place.lon) {
         map.flyTo([place.lat, place.lon], 13, { duration: 1.3 });
         document.getElementById('mapStatus').innerHTML = `📍 Точка: <strong>${place.name}</strong>`;
@@ -116,7 +112,6 @@ async function initApp() {
     ]);
 }
 
-// 2.1 Загрузка категорий для верхнего меню (GET /api/categories)
 async function loadCategories() {
     try {
         const res = await fetch(`${API_BASE}/api/categories`);
@@ -134,7 +129,6 @@ async function loadCategories() {
     }
 }
 
-// 2.2 Загрузка всех мест для карты (GET /api/places)
 async function loadAllPlaces() {
     try {
         const res = await fetch(`${API_BASE}/api/places`);
@@ -147,7 +141,6 @@ async function loadAllPlaces() {
     }
 }
 
-// 2.3 Загрузка экскурсий (GET /api/excursions или ?days=...)
 async function loadExcursions(days = null) {
     try {
         let url = `${API_BASE}/api/excursions`;
@@ -167,7 +160,6 @@ async function loadExcursions(days = null) {
     }
 }
 
-// 2.4 Умный поиск и фильтрация по категориям (GET /api/search)
 async function executeSearch(customQuery = null) {
     const inputEl = document.getElementById('searchInput');
     const queryText = customQuery !== null ? customQuery : inputEl.value.trim();
@@ -176,7 +168,6 @@ async function executeSearch(customQuery = null) {
         inputEl.value = customQuery;
     }
 
-    // Показываем исторический факт, если ищут национальную еду или аулы
     checkAndShowHistoryFact(queryText);
 
     try {
@@ -198,7 +189,6 @@ async function executeSearch(customQuery = null) {
         renderCards(results);
         renderMarkersOnMap(results);
 
-        // Если был текстовый запрос — обновляем блок "Последние запросы" из БД
         if (queryText) {
             loadLastQueries();
         }
@@ -207,7 +197,6 @@ async function executeSearch(customQuery = null) {
     }
 }
 
-// 2.5 Загрузка последних 5 запросов из БД (GET /api/last-queries)
 async function loadLastQueries() {
     const carousel = document.getElementById('recentCarousel');
     const cardColors = ['card-berry', 'card-ochre', 'card-sky'];
@@ -245,7 +234,6 @@ function selectCategory(category, btn) {
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
     if (btn) btn.classList.add('active');
 
-    // Сбрасываем активный фильтр дней
     document.querySelectorAll('.day-chip').forEach(c => c.classList.remove('active'));
 
     if (category === "все" && !document.getElementById('searchInput').value.trim()) {
@@ -270,23 +258,36 @@ function repeatRecentQuery(queryText, category) {
     executeSearch(queryText);
 }
 
-// Отрисовка карточек в нижнем блоке в стиле вашего макета
 function renderCards(items) {
     const grid = document.getElementById('cardsGrid');
     const colors = ['card-berry', 'card-sky', 'card-ochre', 'card-berry'];
 
-if (!items || items.length === 0) {
-grid.innerHTML = <div class="empty-state">По вашему запросу ничего не найдено. Попробуйте изменить категорию или поисковое слово.</div>;
-return;
-}
-grid.innerHTML = items.map((item, index) => {
-const colorClass = colors[index % colors.length];
-const daysBadge = item.days ?  • ${item.days} дн. : '';
-const priceText = item.price ? ${item.price} ₽ : 'Бесплатно';
-const ratingText = item.rating ? ★ ${item.rating} : '★ 4.9';
-// Кодируем объект в строку для передачи в модальное окно
-const itemJson = encodeURIComponent(JSON.stringify(item));
-return <article class="grid-card ${colorClass}" onclick="openPlaceModal('${itemJson}')"> <div class="card-top"> <span class="card-pill">${item.category || 'Маршрут'}${daysBadge}</span> <span class="card-rating">${ratingText}</span> </div> <h3>${item.name}</h3> <p>${item.description || 'Уникальная локация Республики Дагестан.'}</p> <div class="card-footer"> <span class="price">${priceText}</span> <span class="action-link">На карту / Подробнее →</span> </div> </article>;
+    if (!items || items.length === 0) {
+        grid.innerHTML = `<div class="empty-state">По вашему запросу ничего не найдено. Попробуйте изменить категорию или поисковое слово.</div>`;
+        return;
+    }
+
+    grid.innerHTML = items.map((item, index) => {
+        const colorClass = colors[index % colors.length];
+        const daysBadge = item.days ? ` • ${item.days} дн.` : '';
+        const priceText = item.price ? `${item.price} ₽` : 'Бесплатно';
+        const ratingText = item.rating ? `★ ${item.rating}` : '★ 4.9';
+        const itemJson = encodeURIComponent(JSON.stringify(item));
+
+        return `
+            <article class="grid-card ${colorClass}" onclick="openPlaceModal('${itemJson}')">
+                <div class="card-top">
+                    <span class="card-pill">${item.category || 'Маршрут'}${daysBadge}</span>
+${ratingText}
+
+${item.name}
+${item.description || 'Уникальная локация Республики Дагестан.'}
+
+${priceText}
+На карту / Подробнее →
+
+
+`;
 }).join('');
 }
 // ==========================================
@@ -372,3 +373,7 @@ document.querySelectorAll('[data-ru]').forEach(el => {
 el.innerText = el.getAttribute('data-' + currentLang);
 });
 }
+// ==========================================
+// 6. ЗАПУСК ПРИЛОЖЕНИЯ
+// ==========================================
+document.addEventListener('DOMContentLoaded', initApp);
