@@ -670,3 +670,56 @@ font-size: 18px;
 flex-wrap: wrap;
 }
 }
+/* Дополнительные стили для интеграции с API */
+.banner-with-filters {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    text-align: left;
+}
+
+.days-filter {
+    display: flex;
+    gap: 6px;
+}
+
+.day-chip {
+    background: var(--bg-pill);
+    color: var(--text-main);
+    border: 1px solid var(--border-subtle);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.day-chip:hover,
+.day-chip.active {
+    background: var(--map-green);
+    color: #FFFFFF;
+    border-color: var(--map-green);
+}
+
+.modal-route-info {
+    background: var(--bg-pill);
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 12px;
+    color: var(--text-main);
+    margin-bottom: 18px;
+    display: none;
+}
+
+.empty-state {
+    grid-column: 1 / -1;
+    background: var(--bg-surface);
+    padding: 32px;
+    border-radius: 18px;
+    text-align: center;
+    color: var(--text-muted);
+    border: 1px dashed var(--border-subtle);
+}

@@ -1,38 +1,31 @@
-// 1. ИНИЦИАЛИЗАЦИЯ КАРТЫ ДАГЕСТАНА
+const API_BASE = "http://127.0.0.1:8000";
+
+// Состояние приложения
+let currentCategory = "все";
+let allPlacesCache = [];
+let markersLayer = L.layerGroup();
+let routePolyline = null;
+
+// ==========================================
+// 1. ИНИЦИАЛИЗАЦИЯ КАРТЫ LEAFLET
+// ==========================================
 const map = L.map('map', { zoomControl: false }).setView([42.55, 47.15], 8);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
+markersLayer.addTo(map);
 
 const mapLayers = {
-    ethno: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    ethno: L.tileLayer('https://{s}://{z}/{x}/{y}{r}.png', {
         attribution: '© OpenStreetMap'
     }),
     relief: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenTopoMap'
     }),
-    satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    satellite: L.tileLayer('https://arcgisonline.com{z}/{y}/{x}', {
         attribution: '© Esri'
     })
 };
 
 let activeTileLayer = mapLayers.ethno.addTo(map);
-
-// Точки на карте
-const mapPoints = [
-    { name: 'Сулакский каньон', coords: [43.0186, 46.8275], info: 'Глубина 1920 м • Смотровая площадка Дубки' },
-    { name: 'Аул-призрак Гамсутль', coords: [42.3031, 46.9961], info: 'Высота 1418 м • Древний горный аул' },
-    { name: 'Хунзах и водопад Тобот', coords: [42.5539, 46.7167], info: 'Водопад 70 м • Сердце Аварии' },
-    { name: 'Аул Кубачи', coords: [42.0942, 47.5964], info: 'Центр художественной обработки серебра' },
-    { name: 'Махачкала • Гастротур', coords: [42.9831, 47.5047], info: 'Второй рынок, хинкал, даргинское чуду' },
-    { name: 'Дербент • Цитадель Нарын-Кала', coords: [42.0578, 48.2889], info: 'Древнейший город России (более 2000 лет)' }
-];
-
-mapPoints.forEach(pt => {
-    const marker = L.marker(pt.coords).addTo(map);
-    marker.bindPopup(`<strong>${pt.name}</strong><br><span style="font-size:12px;">${pt.info}</span>`);
-    marker.on('click', () => {
-        document.getElementById('mapStatus').innerHTML = `📍 Выбрано: <strong>${pt.name}</strong> — ${pt.info}`;
-    });
-});
 
 function setMapLayer(type, btn) {
     map.removeLayer(activeTileLayer);
@@ -41,134 +34,331 @@ function setMapLayer(type, btn) {
     if (btn) btn.classList.add('active');
 }
 
-function flyToCoords(lat, lng, title) {
-    map.flyTo([lat, lng], 13, { duration: 1.4 });
-    document.getElementById('mapStatus').innerHTML = `🧭 Маршрут на карте: <strong>${title}</strong>`;
-}
-
 function resetMap() {
+    if (routePolyline) {
+        map.removeLayer(routePolyline);
+        routePolyline = null;
+    }
     map.flyTo([42.55, 47.15], 8);
     document.getElementById('mapStatus').innerHTML = '📍 Обзорная карта Республики Дагестан';
 }
 
-// 2. ИСТОРИЧЕСКИЕ ФАКТЫ О ЕДЕ И КУЛЬТУРЕ
-const historyFacts = {
-    'Хинкал': {
-        badge: '🍲 История в тарелке',
-        title: 'Аварский хинкал — символ единства горцев',
-        text: 'Не путать с грузинскими хинкали! Это вареные в мясном бульоне кусочки теста, которые подаются отдельно от мяса с чесночным соусом и пиалой бульона. У каждого из 30 народов Дагестана — своя форма лепки.'
-    },
-    'Чуду': {
-        badge: '🥟 Кулинарная традиция',
-        title: 'Даргинское чуду — закрытый пирог с душой гор',
-        text: 'Тонкие лепешки с мясом, картофелем, творогом или горной зеленью (крапивой и лебедой). Чуду жарят на сухой раскаленной сковороде и щедро смазывают топленым маслом.'
-    },
-    'Урбеч': {
-        badge: '🍯 Древний суперфуд',
-        title: 'Урбеч — энергия горцев на каменных жерновах',
-        text: 'Густая паста из перетертых семян льна, тыквы или абрикосовых косточек. Горцы брали урбеч в походы через перевалы: две ложки с медом мгновенно восстанавливают силы.'
-    },
-    'Гамсутль': {
-        badge: '🏰 Легенды аулов',
-        title: 'Гамсутль — аул, высеченный прямо в скале',
-        text: 'В переводе с аварского означает «у подножия ханской башни». Аул был неприступной крепостью на высоте 1418 метров, куда вела лишь узкая горная тропа.'
-    },
-    'Каньон': {
-        badge: '⛰️ Чудо природы',
-        title: 'Сулакский каньон — глубже Гранд-Каньона в США',
-        text: 'Его глубина достигает 1920 метров, а протяженность — 53 километра. Бирюзовый цвет воде придают минеральные частицы горных пород.'
+// Отрисовка меток на карте из массива объектов БД
+function renderMarkersOnMap(placesList) {
+    markersLayer.clearLayers();
+
+    placesList.forEach(place => {
+        if (place.lat && place.lon) {
+            const marker = L.marker([place.lat, place.lon]);
+            const priceText = place.price ? ` • <b>${place.price} ₽</b>` : '';
+            const ratingText = place.rating ? ` ★ ${place.rating}` : '';
+
+            marker.bindPopup(`
+                <strong>${place.name}</strong><br>
+                <span style="font-size:11px; color:#555;">Категория: ${place.category || 'место'}${ratingText}${priceText}</span><br>
+                <p style="font-size:12px; margin-top:4px;">${place.description ? place.description.slice(0, 90) + '...' : ''}</p>
+            `);
+
+            marker.on('click', () => {
+                document.getElementById('mapStatus').innerHTML = `📍 <strong>${place.name}</strong> (${place.category || 'локация'})${priceText}`;
+                checkAndShowHistoryFact(place.name + " " + (place.description || ""));
+            });
+
+            marker.addTo(markersLayer);
+        }
+    });
+}
+
+// Отрисовка линии маршрута из поля route_coords ("42.98,47.50|43.05,46.85")
+function drawRouteOnMap(place) {
+    if (routePolyline) {
+        map.removeLayer(routePolyline);
+        routePolyline = null;
     }
-};
 
-function showFact(key) {
-    const item = historyFacts[key];
-    if (!item) return;
-    document.getElementById('factBadge').innerText = item.badge;
-    document.getElementById('factTitle').innerText = item.title;
-    document.getElementById('factText').innerText = item.text;
-}
+    if (place.route_coords && place.route_coords.includes('|')) {
+        const points = place.route_coords.split('|').map(pair => {
+            const [lat, lon] = pair.split(',').map(Number);
+            return [lat, lon];
+        }).filter(pt => !isNaN(pt) && !isNaN(pt));
 
-function selectRecent(key, lat, lng) {
-    showFact(key);
-    flyToCoords(lat, lng, key);
-}
+        if (points.length > 1) {
+            routePolyline = L.polyline(points, {
+                color: '#B82925',
+                weight: 5,
+                opacity: 0.85,
+                dashArray: '10, 6'
+            }).addTo(map);
 
-// 3. ПОИСК ПО САЙТУ
-function executeSearch() {
-    const val = document.getElementById('searchInput').value.toLowerCase().trim();
-    if (!val) return;
+            map.fitBounds(routePolyline.getBounds(), { padding: [40, 40] });
+            document.getElementById('mapStatus').innerHTML = `🧭 Маршрут «<strong>${place.name}</strong>» построен на карте (${points.length} точек)`;
+            return;
+        }
+    }
 
-    if (val.includes('чуду')) {
-        showFact('Чуду');
-        flyToCoords(42.9831, 47.5047, 'Где попробовать Даргинское чуду');
-    } else if (val.includes('урбеч')) {
-        showFact('Урбеч');
-        flyToCoords(42.5539, 46.7167, 'Водяные мельницы Хунзаха');
-    } else if (val.includes('хинкал') || val.includes('еда') || val.includes('поесть')) {
-        showFact('Хинкал');
-        flyToCoords(42.9831, 47.5047, 'Этно-кафе Махачкалы');
-    } else if (val.includes('гамсутль') || val.includes('гуниб')) {
-        showFact('Гамсутль');
-        flyToCoords(42.3031, 46.9961, 'Аул-призрак Гамсутль');
-    } else if (val.includes('каньон') || val.includes('сулак')) {
-        showFact('Каньон');
-        flyToCoords(43.0186, 46.8275, 'Сулакский каньон');
-    } else if (val.includes('кубачи')) {
-        flyToCoords(42.0942, 47.5964, 'Аул златокузнецов Кубачи');
-    } else {
-        document.getElementById('mapStatus').innerHTML = `🔍 По запросу «${val}» найдены маршруты в горном Дагестане`;
+    // Если route_coords нет, просто летим к одиночной точке lat/lon
+    if (place.lat && place.lon) {
+        map.flyTo([place.lat, place.lon], 13, { duration: 1.3 });
+        document.getElementById('mapStatus').innerHTML = `📍 Точка: <strong>${place.name}</strong>`;
     }
 }
 
-// 4. ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК МЕНЮ (еда / культура / отели / афиша)
-const categoryData = {
-    food: {
-        heading: 'Гастрономические маршруты и кухня',
-        cards: [
-            { color: 'card-berry', pill: 'Хит • Кухня', rate: '★ 4.9', title: 'Вкус Страны гор: Хинкал и Чуду', desc: 'Дегустация блюд 5 народов Дагестана с историей каждого рецепта в гостях у горцев.', price: '4 500 ₽', coords: [42.9831, 47.5047] },
-            { color: 'card-sky', pill: 'Дегустация', rate: '★ 5.0', title: 'Секреты Урбеча и горного меда', desc: 'Посещение действующей водяной мельницы в горах, где перетирают лен и абрикосовую косточку.', price: '2 800 ₽', coords: [42.5539, 46.7167] },
-            { color: 'card-ochre', pill: 'Мастер-класс', rate: '★ 4.9', title: 'Лепка Курзе с косичкой', desc: 'Кулинарный вечер в старинном доме Гуниба с горным чаем из самовара на шишках.', price: '3 200 ₽', coords: [42.3867, 46.9614] },
-            { color: 'card-berry', pill: 'Южный Дагестан', rate: '★ 4.8', title: 'Лезгинский цкан и шах-плов', desc: 'Гастрономическое путешествие в древний Дербент с ужином в этно-доме.', price: '4 100 ₽', coords: [42.0578, 48.2889] }
-        ]
-    },
-    culture: {
-        heading: 'Экскурсии по Дагестану и ремесла',
-        cards: [
-            { color: 'card-berry', pill: 'Ремесла • Этно', rate: '★ 4.9', title: 'Кубачи и Табасаранские ковры', desc: 'Секреты тысячелетней гравировки по серебру и ткачество орнамента «Древо жизни».', price: '4 800 ₽', coords: [42.0942, 47.5964] },
-            { color: 'card-sky', pill: 'Природа • Хит', rate: '★ 5.0', title: 'Сулакский каньон и Чиркей', desc: 'Бирюзовая вода, смотровые площадки над пропастью и прогулка на катере.', price: '3 900 ₽', coords: [43.0186, 46.8275] },
-            { color: 'card-ochre', pill: 'История • Горы', rate: '★ 4.9', title: 'Гамсутль и Гунибские башни', desc: 'Тропа к древнему аулу в облаках, легенды Кавказской войны и панорамы плато.', price: '4 200 ₽', coords: [42.3031, 46.9961] },
-            { color: 'card-berry', pill: 'Древний город', rate: '★ 5.0', title: 'Дербент и крепость Нарын-Кала', desc: 'Прогулка по узким улочкам старых магалов и древнейшей мечети России.', price: '3 500 ₽', coords: [42.0578, 48.2889] }
-        ]
-    },
-    hotels: {
-        heading: 'Этно-отели и гостевые сакли в горах',
-        cards: [
-            { color: 'card-ochre', pill: 'Аул Чох • Вид на горы', rate: '★ 5.0', title: 'Этнодом в старинном ауле Чох', desc: 'Восстановленный горский дом XIX века с резными балконами и видом на террасы.', price: '6 500 ₽ / ночь', coords: [42.3208, 47.0319] },
-            { color: 'card-sky', pill: 'Гуниб • Панорама', rate: '★ 4.9', title: 'Горный приют «Орлиное гнездо»', desc: 'Уютные номера на высоте 1500 метров с домашними завтраками из фермерских продуктов.', price: '5 800 ₽ / ночь', coords: [42.3867, 46.9614] },
-            { color: 'card-berry', pill: 'Дербент • Старый город', rate: '★ 4.8', title: 'Бутик-отель в магалах Дербента', desc: 'Аутентичный интерьер с табасаранскими коврами в 5 минутах от крепости Нарын-Кала.', price: '7 200 ₽ / ночь', coords: [42.0578, 48.2889] },
-            { color: 'card-ochre', pill: 'Хунзах • У водопада', rate: '★ 4.9', title: 'Глэмпинг на краю плато Тобот', desc: 'Панорамные домики прямо у обрыва каньона с видом на падающий водопад.', price: '8 000 ₽ / ночь', coords: [42.5539, 46.7167] }
-        ]
-    },
-    events: {
-        heading: 'Афиша фестивалей и мастер-классов',
-        cards: [
-            { color: 'card-berry', pill: 'Каждые выходные', rate: '★ 5.0', title: 'Фестиваль горского фольклора', desc: 'Традиционная лезгинка, игра на зурне и барабанах, старинные горские песни.', price: 'Вход свободный', coords: [42.9831, 47.5047] },
-            { color: 'card-ochre', pill: 'Мастер-класс', rate: '★ 4.9', title: 'Гончарный круг в ауле Балхар', desc: 'Лепка знаменитой балхарской керамики с белой росписью под руководством мастериц.', price: '1 500 ₽', coords: [42.1931, 47.2053] },
-            { color: 'card-sky', pill: 'Ярмарка', rate: '★ 4.8', title: 'Выставка кубачинских мастеров', desc: 'Уникальные украшения с чернью, чеканные кувшины и истории древних родов.', price: '500 ₽', coords: [42.0942, 47.5964] },
-            { color: 'card-berry', pill: 'Этно-вечер', rate: '★ 5.0', title: 'Вечер дагестанских легенд у костра', desc: 'Сказания о героях гор, дегустация горного чая и сладостей в Гунибе.', price: '1 200 ₽', coords: [42.3867, 46.9614] }
-        ]
-    }
-};
+// ==========================================
+// 2. ЗАГРУЗКА ДАННЫХ С БЭКЕНДА (FastAPI)
+// ==========================================
 
-function switchCategory(cat, btn) {
+async function initApp() {
+    await Promise.all([
+        loadCategories(),
+        loadAllPlaces(),
+        loadLastQueries(),
+        loadExcursions()
+    ]);
+}
+
+// 2.1 Загрузка категорий для верхнего меню (GET /api/categories)
+async function loadCategories() {
+    try {
+        const res = await fetch(`${API_BASE}/api/categories`);
+        const categories = await res.json();
+        const nav = document.getElementById('categoriesNav');
+
+        nav.innerHTML = categories.map(cat => `
+            <button class="nav-tab ${cat === currentCategory ? 'active' : ''}" 
+                    onclick="selectCategory('${cat}', this)">
+                ${cat}
+            </button>
+        `).join('');
+    } catch (err) {
+        console.warn("Не удалось загрузить категории с сервера, оставлены стандартные:", err);
+    }
+}
+
+// 2.2 Загрузка всех мест для карты (GET /api/places)
+async function loadAllPlaces() {
+    try {
+        const res = await fetch(`${API_BASE}/api/places`);
+        allPlacesCache = await res.json();
+        renderMarkersOnMap(allPlacesCache);
+        document.getElementById('mapStatus').innerHTML = `✅ Загружено объектов на карту: <strong>${allPlacesCache.length}</strong>`;
+    } catch (err) {
+        console.error("Ошибка загрузки /api/places:", err);
+        document.getElementById('mapStatus').innerHTML = `⚠️ Сервер 127.0.0.1:8000 недоступен. Запустите FastAPI (uvicorn).`;
+    }
+}
+
+// 2.3 Загрузка экскурсий (GET /api/excursions или ?days=...)
+async function loadExcursions(days = null) {
+    try {
+        let url = `${API_BASE}/api/excursions`;
+        if (days !== null) {
+            url += `?days=${days}`;
+        }
+        const res = await fetch(url);
+        const data = await res.json();
+
+        document.getElementById('gridHeading').innerText = days
+            ? `Экскурсии на ${days} ${days === 1 ? 'день' : 'дня'}`
+            : 'Экскурсии по Дагестану';
+
+        renderCards(data);
+    } catch (err) {
+        console.error("Ошибка загрузки /api/excursions:", err);
+    }
+}
+
+// 2.4 Умный поиск и фильтрация по категориям (GET /api/search)
+async function executeSearch(customQuery = null) {
+    const inputEl = document.getElementById('searchInput');
+    const queryText = customQuery !== null ? customQuery : inputEl.value.trim();
+
+    if (customQuery !== null) {
+        inputEl.value = customQuery;
+    }
+
+    // Показываем исторический факт, если ищут национальную еду или аулы
+    checkAndShowHistoryFact(queryText);
+
+    try {
+        const params = new URLSearchParams();
+        if (currentCategory && currentCategory !== "все") {
+            params.append("category", currentCategory);
+        }
+        if (queryText) {
+            params.append("query", queryText);
+        }
+
+        const res = await fetch(`${API_BASE}/api/search?${params.toString()}`);
+        const results = await res.json();
+
+        document.getElementById('gridHeading').innerText = queryText
+            ? `Результаты по запросу «${queryText}» (${results.length})`
+            : `Категория: ${currentCategory} (${results.length})`;
+
+        renderCards(results);
+        renderMarkersOnMap(results);
+
+        // Если был текстовый запрос — обновляем блок "Последние запросы" из БД
+        if (queryText) {
+            loadLastQueries();
+        }
+    } catch (err) {
+        console.error("Ошибка при поиске /api/search:", err);
+    }
+}
+
+// 2.5 Загрузка последних 5 запросов из БД (GET /api/last-queries)
+async function loadLastQueries() {
+    const carousel = document.getElementById('recentCarousel');
+    const cardColors = ['card-berry', 'card-ochre', 'card-sky'];
+
+    try {
+        const res = await fetch(`${API_BASE}/api/last-queries`);
+        const queries = await res.json();
+
+        if (!queries.length) {
+            carousel.innerHTML = `<div class="recent-card card-ochre"><small>История поиска пока пуста. Введите запрос выше!</small></div>`;
+            return;
+        }
+
+        carousel.innerHTML = queries.map((q, index) => {
+            const colorClass = cardColors[index % cardColors.length];
+            return `
+                <div class="recent-card ${colorClass}" onclick="repeatRecentQuery('${q.query_text}', '${q.category || 'все'}')">
+                    <span class="recent-tag">Категория: ${q.category || 'все'}</span>
+                    <strong>${q.query_text}</strong>
+                    <small>Повторить поиск →</small>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        console.warn("Не удалось загрузить /api/last-queries:", err);
+    }
+}
+
+// ==========================================
+// 3. ВЗАИМОДЕЙСТВИЕ С ИНТЕРФЕЙСОМ
+// ==========================================
+
+function selectCategory(category, btn) {
+    currentCategory = category;
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-btn.classList.add('active');
-const data = categoryData[cat];
-document.getElementById('gridHeading').innerText = data.heading;
-const grid = document.getElementById('cardsGrid');
-grid.innerHTML = data.cards.map(c => <article class="grid-card ${c.color}" onclick="openModal('${c.title}', '${c.desc}', '${c.price}', [${c.coords[0]}, ${c.coords[1]}])"> <div class="card-top"> <span class="card-pill">${c.pill}</span> <span class="card-rating">${c.rate}</span> </div> <h3>${c.title}</h3> <p>${c.desc}</p> <div class="card-footer"> <span class="price">${c.price}</span> <span class="action-link">Подробнее →</span> </div> </article>).join('');
+    if (btn) btn.classList.add('active');
+
+    // Сбрасываем активный фильтр дней
+    document.querySelectorAll('.day-chip').forEach(c => c.classList.remove('active'));
+
+    if (category === "все" && !document.getElementById('searchInput').value.trim()) {
+        loadAllPlaces();
+        loadExcursions();
+    } else {
+        executeSearch();
+    }
 }
-// 5. ПЕРЕКЛЮЧЕНИЕ ТЕМЫ (ДЕНЬ / НОЧЬ) И ЯЗЫКА (АБ)
+
+function filterByDays(days, btn) {
+    document.querySelectorAll('.day-chip').forEach(c => c.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    loadExcursions(days);
+}
+
+function repeatRecentQuery(queryText, category) {
+    currentCategory = category;
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.innerText.trim() === category);
+    });
+    executeSearch(queryText);
+}
+
+// Отрисовка карточек в нижнем блоке в стиле вашего макета
+function renderCards(items) {
+    const grid = document.getElementById('cardsGrid');
+    const colors = ['card-berry', 'card-sky', 'card-ochre', 'card-berry'];
+
+if (!items || items.length === 0) {
+grid.innerHTML = <div class="empty-state">По вашему запросу ничего не найдено. Попробуйте изменить категорию или поисковое слово.</div>;
+return;
+}
+grid.innerHTML = items.map((item, index) => {
+const colorClass = colors[index % colors.length];
+const daysBadge = item.days ?  • ${item.days} дн. : '';
+const priceText = item.price ? ${item.price} ₽ : 'Бесплатно';
+const ratingText = item.rating ? ★ ${item.rating} : '★ 4.9';
+// Кодируем объект в строку для передачи в модальное окно
+const itemJson = encodeURIComponent(JSON.stringify(item));
+return <article class="grid-card ${colorClass}" onclick="openPlaceModal('${itemJson}')"> <div class="card-top"> <span class="card-pill">${item.category || 'Маршрут'}${daysBadge}</span> <span class="card-rating">${ratingText}</span> </div> <h3>${item.name}</h3> <p>${item.description || 'Уникальная локация Республики Дагестан.'}</p> <div class="card-footer"> <span class="price">${priceText}</span> <span class="action-link">На карту / Подробнее →</span> </div> </article>;
+}).join('');
+}
+// ==========================================
+// 4. ИСТОРИЧЕСКИЕ ФАКТЫ О НАЦИОНАЛЬНОЙ ЕДЕ
+// ==========================================
+const historyFacts = {
+'хинкал': {
+badge: '🍲 История в тарелке',
+title: 'Аварский хинкал — символ единства горцев',
+text: 'Не путать с грузинскими хинкали! В Дагестане это вареные в мясном бульоне кусочки теста, которые подаются отдельно от мяса с чесночным соусом и пиалой бульона. У каждого из 30 народов республики — свой способ лепки.'
+},
+'чуду': {
+badge: '🥟 Кулинарная традиция',
+title: 'Даргинское чуду — закрытый пирог с душой гор',
+text: 'Тонкие лепешки с мясом, картофелем, творогом или горной зеленью (крапивой и лебедой). Чуду жарят на сухой раскаленной сковороде и щедро смазывают топленым маслом.'
+},
+'урбеч': {
+badge: '🍯 Древний суперфуд',
+title: 'Урбеч — энергия горцев на каменных жерновах',
+text: 'Густая паста из перетертых сырых семян льна, тыквы или абрикосовых косточек. Горцы брали урбеч в походы через перевалы: две ложки с медом мгновенно восстанавливают силы.'
+},
+'курзе': {
+badge: '🥟 Секреты кухни',
+title: 'Курзе — дагестанские пельмени с узорной «косичкой»',
+text: 'Их легко узнать по особому плетеному шву, который удерживает сочный бульон внутри. В начинку часто добавляют барбарис, грецкий орех или ароматные горные травы.'
+},
+'гамсутль': {
+badge: '🏰 Легенды аулов',
+title: 'Гамсутль — аул, высеченный прямо в скале',
+text: 'В переводе с аварского означает «у подножия ханской башни». Аул был неприступной крепостью на высоте 1418 метров, куда вела лишь узкая горная тропа.'
+}
+};
+function checkAndShowHistoryFact(text) {
+if (!text) return;
+const lower = text.toLowerCase();
+for (const key in historyFacts) {
+if (lower.includes(key)) {
+const fact = historyFacts[key];
+document.getElementById('factBadge').innerText = fact.badge;
+document.getElementById('factTitle').innerText = fact.title;
+document.getElementById('factText').innerText = fact.text;
+break;
+}
+}
+}
+// ==========================================
+// 5. МОДАЛЬНОЕ ОКНО, ТЕМА И ЯЗЫК
+// ==========================================
+function openPlaceModal(encodedItem) {
+const place = JSON.parse(decodeURIComponent(encodedItem));
+document.getElementById('modalCategory').innerText = ${place.category || 'Маршрут'}${place.days ? ' • ' + place.days + ' дн.' : ''};
+document.getElementById('modalTitle').innerText = place.name;
+document.getElementById('modalDesc').innerText = place.description || 'Описание маршрута.';
+document.getElementById('modalPrice').innerText = place.price ? ${place.price} ₽ : 'Вход свободный';
+const routeBox = document.getElementById('modalRouteText');
+if (place.route_points) {
+routeBox.style.display = 'block';
+routeBox.innerHTML = <strong>Точки маршрута:</strong> ${place.route_points};
+} else {
+routeBox.style.display = 'none';
+}
+document.getElementById('modalMapBtn').onclick = () => {
+closeModal(null, true);
+drawRouteOnMap(place);
+};
+document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal(e, force) {
+if (force || (e && e.target.id === 'modalOverlay')) {
+document.getElementById('modalOverlay').classList.remove('open');
+}
+}
 function toggleTheme() {
 document.body.classList.toggle('dark-theme');
 const isDark = document.body.classList.contains('dark-theme');
@@ -181,20 +371,4 @@ document.getElementById('langIndicator').innerText = currentLang.toUpperCase();
 document.querySelectorAll('[data-ru]').forEach(el => {
 el.innerText = el.getAttribute('data-' + currentLang);
 });
-}
-// 6. МОДАЛЬНОЕ ОКНО (ИСПРАВЛЕНА ПЕРЕДАЧА КООРДИНАТ)
-function openModal(title, desc, price, coords) {
-document.getElementById('modalTitle').innerText = title;
-document.getElementById('modalDesc').innerText = desc;
-document.getElementById('modalPrice').innerText = price;
-document.getElementById('modalMapBtn').onclick = () => {
-closeModal(null, true);
-flyToCoords(coords[0], coords[1], title);
-};
-document.getElementById('modalOverlay').classList.add('open');
-}
-function closeModal(e, force) {
-if (force || (e && e.target.id === 'modalOverlay')) {
-document.getElementById('modalOverlay').classList.remove('open');
-}
 }
